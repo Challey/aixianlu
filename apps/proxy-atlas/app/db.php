@@ -38,6 +38,11 @@ function ensure_schema(PDO $pdo): void
     }
     $pdo->exec($schema);
 
+    $probeSchema = __DIR__ . '/probe_schema.sql';
+    if (is_file($probeSchema)) {
+        $pdo->exec((string) file_get_contents($probeSchema));
+    }
+
     // CREATE TABLE IF NOT EXISTS does not add columns to an existing database.
     $columns = [];
     foreach ($pdo->query('PRAGMA table_info(providers)')->fetchAll() as $column) {

@@ -3,6 +3,11 @@
 These are intentionally conservative:
 - We treat 401/403 as "reachable" for authenticated APIs.
 - Only public, well-known endpoints are included.
+- Model-level targets send a minimal request body naming a specific model.
+  Without an API key they only prove the endpoint is reachable and reveal the
+  error class (auth / region block / rate limit). Set the matching environment
+  variable (``auth_env``) to run a real model-level check with your own key.
+  Keys are read at run time and never written to reports.
 """
 
 from __future__ import annotations
@@ -24,6 +29,24 @@ DEFAULT_TARGETS: list[Target] = [
         headers={"Content-Type": "application/json"},
         expected_status=[200, 401, 403, 429],
         category="ai",
+        model="gpt-4o-mini",
+        body={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        },
+        auth_env="OPENAI_API_KEY",
+    ),
+    Target(
+        name="openai-embeddings",
+        url="https://api.openai.com/v1/embeddings",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+        expected_status=[200, 401, 403, 429],
+        category="ai",
+        model="text-embedding-3-small",
+        body={"model": "text-embedding-3-small", "input": "ping"},
+        auth_env="OPENAI_API_KEY",
     ),
     Target(
         name="claude-api",
@@ -32,6 +55,15 @@ DEFAULT_TARGETS: list[Target] = [
         headers={"Content-Type": "application/json", "anthropic-version": "2023-06-01"},
         expected_status=[200, 401, 403, 429],
         category="ai",
+        model="claude-sonnet-4-5",
+        body={
+            "model": "claude-sonnet-4-5",
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "ping"}],
+        },
+        auth_env="ANTHROPIC_API_KEY",
+        auth_header="x-api-key",
+        auth_scheme="",
     ),
     Target(
         name="claude-web",
@@ -46,6 +78,19 @@ DEFAULT_TARGETS: list[Target] = [
         method="GET",
         expected_status=[200, 400, 401, 403],
         category="ai",
+    ),
+    Target(
+        name="gemini-flash",
+        url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+        expected_status=[200, 400, 401, 403, 429],
+        category="ai",
+        model="gemini-2.0-flash",
+        body={"contents": [{"parts": [{"text": "ping"}]}]},
+        auth_env="GEMINI_API_KEY",
+        auth_header="x-goog-api-key",
+        auth_scheme="",
     ),
     Target(
         name="cursor-api",

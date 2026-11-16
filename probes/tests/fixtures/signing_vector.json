@@ -1,0 +1,64 @@
+{
+  "token": "test-token-123",
+  "payload": {
+    "protocol_version": "0.2.0",
+    "probe_id": "probe-abc123",
+    "timestamp": "2026-11-16T15:30:00+08:00",
+    "client": {
+      "version": "0.2.0",
+      "language": "python",
+      "os": "Linux 6.6"
+    },
+    "location": {
+      "isp": "电信",
+      "region": "广东",
+      "asn": 4134,
+      "country": "CN"
+    },
+    "results": [
+      {
+        "name": "openai-api",
+        "url": "https://api.openai.com/v1/models",
+        "category": "ai",
+        "method": "GET",
+        "success": true,
+        "reachable": true,
+        "status_code": 401,
+        "latency_ms": 186.4,
+        "error_type": null,
+        "error_class": "auth_required",
+        "error_message": null,
+        "tls_version": "TLSv1.3",
+        "http_version": "HTTP/2",
+        "redirect_count": 0,
+        "response_size": 1234,
+        "attempts": 1,
+        "model": null,
+        "checked_at": "2026-11-16T15:30:01+08:00"
+      },
+      {
+        "name": "zero",
+        "url": "https://example.com/",
+        "category": "control",
+        "method": "GET",
+        "success": false,
+        "reachable": false,
+        "status_code": null,
+        "latency_ms": 0.0,
+        "error_type": "timeout",
+        "error_class": null,
+        "error_message": "timed out",
+        "tls_version": null,
+        "http_version": null,
+        "redirect_count": 0,
+        "response_size": null,
+        "attempts": 2,
+        "model": null,
+        "checked_at": "2026-11-16T15:30:02+08:00"
+      }
+    ],
+    "signature": null
+  },
+  "canonical": "{\"client\":{\"language\":\"python\",\"os\":\"Linux 6.6\",\"version\":\"0.2.0\"},\"location\":{\"asn\":4134,\"country\":\"CN\",\"isp\":\"电信\",\"region\":\"广东\"},\"probe_id\":\"probe-abc123\",\"protocol_version\":\"0.2.0\",\"results\":[{\"attempts\":1,\"category\":\"ai\",\"checked_at\":\"2026-11-16T15:30:01+08:00\",\"error_class\":\"auth_required\",\"error_message\":null,\"error_type\":null,\"http_version\":\"HTTP/2\",\"latency_ms\":186.400000,\"method\":\"GET\",\"model\":null,\"name\":\"openai-api\",\"reachable\":true,\"redirect_count\":0,\"response_size\":1234,\"status_code\":401,\"success\":true,\"tls_version\":\"TLSv1.3\",\"url\":\"https://api.openai.com/v1/models\"},{\"attempts\":2,\"category\":\"control\",\"checked_at\":\"2026-11-16T15:30:02+08:00\",\"error_class\":null,\"error_message\":\"timed out\",\"error_type\":\"timeout\",\"http_version\":null,\"latency_ms\":0.000000,\"method\":\"GET\",\"model\":null,\"name\":\"zero\",\"reachable\":false,\"redirect_count\":0,\"response_size\":null,\"status_code\":null,\"success\":false,\"tls_version\":null,\"url\":\"https://example.com/\"}],\"timestamp\":\"2026-11-16T15:30:00+08:00\"}",
+  "signature": "41e81b4547b0292e5aef5545d151a92ad055744899b2b889aae5661fe522d06d"
+}

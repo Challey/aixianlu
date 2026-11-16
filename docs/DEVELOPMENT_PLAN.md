@@ -44,12 +44,14 @@
 - [ ] 增加 8–12 篇高意图 SEO 长尾文章（Cursor 连接问题、Claude 稳定方案、电信/联通差异等）
 - [ ] 完善 36 家「官网待补录」机场数据
 
-#### 1.2 探针原型（开源）
-- [ ] 设计探针上报协议（JSON Schema）
-- [ ] 实现 Go 或 Python 轻量 CLI 探针（测试 openai / claude / cursor 相关端点）
-- [ ] 简单防刷（时间窗口 token + 设备指纹）
-- [ ] 在 proxy-atlas 增加「探针数据接收」临时接口（或先写本地日志）
-- [ ] 开源仓库 + README，引导用户贡献
+#### 1.2 探针原型（开源）✅ 已完成 v0.2.0
+- [x] 设计探针上报协议（JSON Schema）→ `probes/PROTOCOL.md` v0.2.0
+- [x] 实现 Python 轻量 CLI 探针（`probes/`，10 个默认目标含 5 个模型级端点；TTFB、TLS 版本、重试、错误双层分类）
+- [x] 简单防刷（token 哈希存储 + HMAC-SHA256 规范 JSON 签名 + 时间窗 + 按探针限速 + 去重 + 设备指纹 ID）
+- [x] 在 proxy-atlas 增加「探针数据接收」接口：`/api/v1/metrics/report`、`/api/v1/metrics/latest`、后台「探针数据」页、`bin/probe_token.php`、`bin/probe_snapshot.php`
+- [x] 开源仓库 + README，引导用户贡献（`probes/README.md`，含隐私与密钥说明）
+- [ ] 第一批外部贡献者：社区帖 + 一键安装脚本 + 贡献榜单页面
+- [ ] 定时/守护模式与自动上报（v0.3.0）
 
 #### 1.3 运营与转化
 - [ ] 批量申请并录入真实 Affiliate 链接
@@ -88,10 +90,10 @@
 #### 2.3 探针正式版
 路径：`probes/`
 
-- [ ] 正式上报协议 + 安全机制
-- [ ] 多端点测试（模型级）
+- [ ] 正式上报协议 + 安全机制（当前 v0.2.0 已实现签名 + 限速 + 去重；正式版需加服务端 nonce 挑战防重放与多租户配额）
+- [x] 多端点测试（模型级）：OpenAI Chat/Embeddings、Anthropic Messages、Gemini generateContent（可配置自带密钥）
 - [ ] 贡献积分与激励设计
-- [ ] 与 MetricSnapshot 打通
+- [ ] 与 MetricSnapshot 打通（ interim：`apps/proxy-atlas` 的 `probe_snapshots` 表即为快照模型，迁移时字段一一对应）
 
 ---
 
@@ -130,7 +132,8 @@
 1. **完成 Phase 0 上线**（最高优先级）。
 2. 创建本仓库 Issues，按 Phase 拆解任务。
 3. 开始 Phase 1.1 的 SEO 文章与数据补全。
-4. 设计探针上报协议草稿（可先放在 `probes/PROTOCOL.md`）。
+4. ~~设计探针上报协议草稿~~（已完成：`probes/PROTOCOL.md` v0.2.0 + PHP 接收端已联调）。
+5. 上线后为探针配 cron：`php bin/probe_snapshot.php --hours=6`（每小时）与发放首个官方探针 token。
 
 ---
 

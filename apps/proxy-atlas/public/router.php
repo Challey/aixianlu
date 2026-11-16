@@ -43,6 +43,16 @@ if (preg_match('#^/api/agent-apply/?$#', $path)) {
     return true;
 }
 
+if (preg_match('#^/api/v1/metrics/report/?$#', $path)) {
+    require $root . '/api/metrics-report.php';
+    return true;
+}
+
+if (preg_match('#^/api/v1/metrics/latest/?$#', $path)) {
+    require $root . '/api/metrics-latest.php';
+    return true;
+}
+
 if ($path === '/admin') {
     header('Location: /admin/', true, 301);
     exit;

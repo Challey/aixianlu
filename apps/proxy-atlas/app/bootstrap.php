@@ -11,6 +11,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/repository.php';
 require_once __DIR__ . '/ai_repository.php';
+require_once __DIR__ . '/probe_repository.php';
 
 if (is_file(APP_ROOT . '/.env')) {
     foreach (file(APP_ROOT . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {

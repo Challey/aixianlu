@@ -58,6 +58,9 @@ php -S 127.0.0.1:8080 -t public public/router.php
 | `/about/` | 数据口径、来源、隐私与免责声明 |
 | `/go/{slug}` | 记录点击并 302 到服务商官网；官网待补录时显示提示页 |
 | `/api/agent-apply.php` | 代理申请接口（POST，JSON 或表单） |
+| `/api/v1/metrics/report` | 探针上报接口（POST，Bearer token + HMAC 签名） |
+| `/api/v1/metrics/latest` | 探针指标只读聚合（GET，`hours`/`isp`/`name`） |
+| `/admin/probes.php` | 后台「探针数据」：token 发放/撤销、线路质量快照、最近上报 |
 | `/admin/` | 管理后台（登录后访问） |
 
 公共 HTML 都由 `bin/build.php` 生成，**修改后台数据后必须重建**，前台才会更新。
@@ -69,7 +72,7 @@ php -S 127.0.0.1:8080 -t public public/router.php
 ```text
 apps/proxy-atlas/
 ├─ assets/                 设计系统 CSS + 前端/后台 JS（构建时复制到 public/assets）
-├─ app/                    bootstrap、DB、helpers、repository、ai_repository、schema.sql
+├─ app/                    bootstrap、DB、helpers、repository、ai_repository、probe_repository、schema.sql、probe_schema.sql
 ├─ bin/
 │  ├─ scrape.py            抓取公开索引与评测页，生成种子（不抓联盟链接/图片/原文）
 │  ├─ import.php           种子 → SQLite
@@ -78,6 +81,9 @@ apps/proxy-atlas/
 │  ├─ build.php            SQLite → public/ 静态站
 │  ├─ daily.sh             每日流水线：采集 → 构建 → 健康检查 → 搜索推送
 │  ├─ health.php           检查官网缺失、新闻过旧、构建过期
+│  ├─ probe_token.php      探针 token：issue / list / revoke / activate
+│  ├─ probe_snapshot.php   小时快照聚合与明细清理
+│  ├─ probe_parity.php     与 Python 探针的签名跨语言一致性检查
 │  └─ ping.php             IndexNow / 百度普通收录推送
 ├─ data/
 │  ├─ seed/providers.json  统一后的机场与套餐数据
@@ -258,6 +264,41 @@ python3 bin/collect_news.py --limit 20 --prune-days 90
 
 ---
 
+## 探针数据接收
+
+开源探针（`probes/`，协议 v0.2.0，见 `probes/PROTOCOL.md`）把中国大陆到 AI 端点的连通性结果上报到这里。
+
+- 接收：`POST /api/v1/metrics/report`（`public/api/metrics-report.php`）→ `probe_reports` + `probe_results`。
+- 只读聚合：`GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-chat`（`public/api/metrics-latest.php`，60 秒缓存，`noindex`）。返回按 `name/model/isp` 聚合的样本数、可达率、可用率、平均 TTFB、最差 P95、区域拦截与限流计数；**不返回探针 ID、IP 或原始载荷**。
+- 后台：「探针数据」页发放/撤销 token（token 明文只在生成后那一次显示，经会话传递，不进 URL）、看窗口内质量快照与最近上报。
+
+### 防刷与签名
+
+| 机制 | 实现 |
+| --- | --- |
+| 身份 | `Authorization: Bearer <token>`，库内只存 SHA-256；`probe_id` 必须与 token 绑定 |
+| 完整性 | HMAC-SHA256 覆盖规范 JSON（去 `signature`、键排序、无空白、非 ASCII 不转义、浮点固定 6 位小数），密钥 = `HMAC(token, "aixianlu-probe/v1/signing")` |
+| 新鲜度 | `timestamp` 与服务器时间差需 ≤ `PROBE_TIMESTAMP_SKEW_SECONDS`（默认 300） |
+| 限速 | 每探针最小间隔 `PROBE_MIN_INTERVAL_SECONDS`（60）+ 每小时上限 `PROBE_HOURLY_LIMIT`（120），超限返回 `429` 与 `Retry-After` |
+| 去重 | `dedupe_key = sha256(probe_id|timestamp|canonical_hash)` 唯一索引，重复返回 `409` |
+| 载荷 | 结果条数 ≤ `PROBE_MAX_RESULTS`（200）、请求体 ≤ `PROBE_MAX_BODY_BYTES`（256 KB）、枚举白名单校验（`422`） |
+| 兼容 | `PROBE_ALLOW_UNSIGNED=1` 时仅对 0.1.x 载荷放行未签名上报，并在记录中标 `signature_ok=0` |
+
+跨语言一致性用共享测试向量校验：`php bin/probe_parity.php`（对照 `probes/tests/fixtures/signing_vector.json`）。
+
+### 常用命令
+
+```bash
+php bin/probe_token.php issue --label="电信-广东-VPS-01"   # 发放（明文只打印一次）
+php bin/probe_token.php list / revoke <probe_id> / activate <probe_id>
+php bin/probe_snapshot.php --hours=48                     # 小时快照聚合
+php bin/probe_snapshot.php --hours=6 --prune-days=30      # 聚合并清理明细（建议每小时 cron）
+```
+
+表结构在 `app/probe_schema.sql`，由 `ensure_schema()` 自动建表；时间统一按 UTC 存储与分桶。数据目前只用于后台与 API，尚未渲染进静态前台——接入前台展示时需与「风险雷达」口径一起标注采样来源与样本量。
+
+---
+
 ## 部署（国际出口 / 非备案）
 
 完整的主机选型、Nginx、备份、安全与中国访问说明见 [DEPLOY.md](DEPLOY.md)。
@@ -272,6 +313,10 @@ python3 bin/collect_news.py --limit 20 --prune-days 90
    PROXY_IP_SALT=随机长字符串
    PROXY_ADMIN_USER=admin
    PROXY_ADMIN_PASSWORD=一个强密码
+   # 探针接收（可选，有贡献者上报时再调）
+   PROBE_MIN_INTERVAL_SECONDS=60
+   PROBE_HOURLY_LIMIT=120
+   PROBE_ALLOW_UNSIGNED=0
    ```
 3. 首次部署：`php bin/import.php && php bin/build.php`
 4. 后台 → 站点设置，确认 `site_url`、站点名称、合作邮箱（默认 `partner@example.com`）无误，再构建一次。
@@ -300,6 +345,10 @@ server {
         rewrite ^/go/([a-z0-9-]+)/?$ /go.php last;
     }
 
+    # 探针接口版本化路径 → PHP 入口
+    location = /api/v1/metrics/report { rewrite ^ /api/metrics-report.php last; }
+    location = /api/v1/metrics/latest { rewrite ^ /api/metrics-latest.php last; }
+
     location ~ \.php$ {
         try_files $uri =404;
         include fastcgi_params;
@@ -323,9 +372,17 @@ server {
 ```apache
 RewriteEngine On
 RewriteRule ^go/([a-z0-9-]+)/?$ go.php [L,QSA]
+RewriteRule ^api/v1/metrics/report/?$ api/metrics-report.php [L,QSA]
+RewriteRule ^api/v1/metrics/latest/?$ api/metrics-latest.php [L,QSA]
 ```
 
-并把站点根目录指向 `public/`，禁止访问 `storage/` 与 `.env`。
+并把站点根目录指向 `public/`，禁止访问 `storage/` 与 `.env`。Apache 默认会剥离 `Authorization`，需加 `RewriteCond %{HTTP:Authorization} .` + `RequestHeader set`（或 `CGIPassAuth On`）；否则让探针改用等价的 `X-Probe-Token` 头，接收端两者都支持。
+
+探针数据建议加一条 cron（详见「探针数据接收」）：
+
+```cron
+5 * * * * cd /var/www/proxy-atlas && php bin/probe_snapshot.php --hours=6 >> storage/logs/probe.log 2>&1
+```
 
 ### 为什么不用 Drupal
 

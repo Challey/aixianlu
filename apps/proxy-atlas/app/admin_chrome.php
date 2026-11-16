@@ -31,6 +31,7 @@ function admin_header(string $title, string $active = ''): void
         ['href' => '/admin/news.php', 'key' => 'news', 'label' => 'AI 新闻'],
         ['href' => '/admin/agents.php', 'key' => 'agents', 'label' => '代理申请'],
         ['href' => '/admin/clicks.php', 'key' => 'clicks', 'label' => '点击记录'],
+        ['href' => '/admin/probes.php', 'key' => 'probes', 'label' => '探针数据'],
         ['href' => '/admin/settings.php', 'key' => 'settings', 'label' => '站点设置'],
         ['href' => '/admin/rebuild.php', 'key' => 'rebuild', 'label' => '构建与导入'],
     ];

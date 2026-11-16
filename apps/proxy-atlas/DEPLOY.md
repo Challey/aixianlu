@@ -87,6 +87,14 @@ INDEXNOW_KEY=用 openssl rand -hex 16 生成
 # BAIDU_PUSH_TOKEN=百度搜索资源平台推送 token
 POSTBACK_TOKEN=服务器回传佣金用的随机 token
 ALERT_WEBHOOK_URL=健康检查异常时推送的 webhook
+# 探针上报（开源 probes/，协议 v0.2.0）
+PROBE_MIN_INTERVAL_SECONDS=60
+PROBE_HOURLY_LIMIT=120
+PROBE_TIMESTAMP_SKEW_SECONDS=300
+PROBE_MAX_RESULTS=200
+PROBE_MAX_BODY_BYTES=262144
+# 仅在迁移 0.1.x 旧探针时临时设为 1，稳定后请改回 0
+PROBE_ALLOW_UNSIGNED=0
 ```
 
 ```bash
@@ -127,6 +135,10 @@ server {
     }
 
     location = /go { return 302 /providers/; }
+
+    # 探针接口：版本化路径 → PHP 入口
+    location = /api/v1/metrics/report { rewrite ^ /api/metrics-report.php last; }
+    location = /api/v1/metrics/latest { rewrite ^ /api/metrics-latest.php last; }
 
     # PHP 只在这些入口执行
     location ~ ^/(admin|api)/.*\.php$ {
@@ -211,6 +223,9 @@ crontab -e
 0 7 * * * cd /var/www/aixianlu && ./bin/daily.sh >> storage/logs/cron.log 2>&1
 # 每小时轻量健康检查（可选）
 17 * * * * cd /var/www/aixianlu && php bin/health.php >> storage/logs/health.log 2>&1
+# 每小时聚合探针快照，每天清理 30 天前的明细
+5 * * * * cd /var/www/aixianlu && php bin/probe_snapshot.php --hours=6 >> storage/logs/probe.log 2>&1
+5 4 * * * cd /var/www/aixianlu && php bin/probe_snapshot.php --hours=48 --prune-days=30 >> storage/logs/probe.log 2>&1
 ```
 
 日志在 `storage/logs/daily-YYYY-MM.log`。用 logrotate 保留 30 天：
@@ -231,6 +246,30 @@ crontab -e
 - 百度：在搜索资源平台验证站点，拿到推送 token 填入 `BAIDU_PUSH_TOKEN`，脚本会调用百度普通收录 API。
 - Google 已停用 sitemap ping；在 Search Console 提交 `https://aixianlu.com/sitemap.xml`，之后靠 sitemap、内链和正常抓取发现新页。
 - 三个平台都提交一次后，日常不需要人工操作。
+
+### 探针数据管道（开源 `probes/`）
+
+接收端随站点一起跑在 PHP-FPM 上，无需额外服务；协议与限制见 `probes/PROTOCOL.md` 与 `README.md` 的「探针数据接收」。
+
+```bash
+# 发放第一个官方探针 token（明文只打印一次）
+php bin/probe_token.php issue --label="官方-新加坡-VPS"
+php bin/probe_token.php list
+
+# 立刻验证接收链路（服务端与探针同机时最直接）
+curl -s "https://aixianlu.com/api/v1/metrics/latest?hours=24" | head -c 300
+
+# 聚合一次，确认快照写入
+php bin/probe_snapshot.php --hours=48
+```
+
+要点：
+
+- Nginx 需保留上面两条 `/api/v1/metrics/*` rewrite；Nginx 默认会把 `Authorization` 头透传给 PHP-FPM，Apache 需 `CGIPassAuth On`，否则探针可改用等价的 `X-Probe-Token` 头。
+- 上报是写操作，`storage/`（或 `PROXY_DB` 所在目录）必须对 `www-data` 可写；SQLite 已开 WAL，与构建任务并发安全。
+- 若走 Cloudflare，把 `/api/v1/metrics/report` 设为不缓存、跳过速率限制之外的 WAF 挑战（否则探针会被 JS challenge 挡住返回 403）；`/api/v1/metrics/latest` 可保留 60 秒边缘缓存。
+- 后台 `/admin/probes.php` 看质量快照与最近上报；token 撤销即刻生效（`403`）。
+- 公开 API 只返回聚合值，不含探针 ID、IP 与原始载荷；对外展示时按 `samples` 与 `hours_covered` 标注样本量与时间窗。
 
 ## 6. 备份与恢复
 

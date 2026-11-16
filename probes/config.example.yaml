@@ -1,13 +1,18 @@
 # AIXianlu Probe configuration example
-# Copy to config.yaml and edit as needed.
+# Copy to config.yaml and edit as needed. config.yaml is git-ignored.
 
-probe_id: ""                      # leave empty → auto-generate stable ID
+probe_id: ""                      # leave empty → stable ID from device fingerprint
 timeout_seconds: 12
 concurrency: 6
-user_agent: "aixianlu-probe/0.1.0"
+retries: 1                        # extra attempts on transport errors
+retry_backoff_seconds: 0.5        # exponential backoff base
+user_agent: "aixianlu-probe/0.2.0"
+geo_timeout_seconds: 5
 
 location:
-  isp: ""                         # 电信 / 联通 / 移动 / 其他
+  auto_detect: false              # ask a public IP info service; only ISP/region/ASN are kept,
+                                  # the IP address itself is never stored or uploaded
+  isp: ""                         # 电信 / 联通 / 移动 / 其他（手动值优先于自动识别）
   region: ""                      # e.g. 广东 / 上海
   asn: null
   country: "CN"
@@ -15,13 +20,27 @@ location:
 report:
   enabled: false
   endpoint: "https://aixianlu.com/api/v1/metrics/report"
-  token: ""
+  token: ""                       # issued by the platform; used for Bearer auth + HMAC signing
   timeout_seconds: 10
+  min_interval_seconds: 60        # client-side cooldown between uploads
+  # state_path: "~/.cache/aixianlu-probe/state.json"
 
 # Optional: override or extend default targets
+# extend_targets: true            # keep built-in targets and add/override by name
 # targets:
 #   - name: my-custom
 #     url: "https://example.com/health"
 #     method: GET
 #     expected_status: [200]
 #     category: custom
+#
+#   - name: openai-chat-keyed     # real model-level check with your own key
+#     url: "https://api.openai.com/v1/chat/completions"
+#     method: POST
+#     model: gpt-4o-mini
+#     body:
+#       model: gpt-4o-mini
+#       messages: [{ role: user, content: ping }]
+#       max_tokens: 1
+#     expected_status: [200, 429]
+#     auth_env: OPENAI_API_KEY    # read at run time, never written to reports
