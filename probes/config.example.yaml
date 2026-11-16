@@ -1,0 +1,27 @@
+# AIXianlu Probe configuration example
+# Copy to config.yaml and edit as needed.
+
+probe_id: ""                      # leave empty → auto-generate stable ID
+timeout_seconds: 12
+concurrency: 6
+user_agent: "aixianlu-probe/0.1.0"
+
+location:
+  isp: ""                         # 电信 / 联通 / 移动 / 其他
+  region: ""                      # e.g. 广东 / 上海
+  asn: null
+  country: "CN"
+
+report:
+  enabled: false
+  endpoint: "https://aixianlu.com/api/v1/metrics/report"
+  token: ""
+  timeout_seconds: 10
+
+# Optional: override or extend default targets
+# targets:
+#   - name: my-custom
+#     url: "https://example.com/health"
+#     method: GET
+#     expected_status: [200]
+#     category: custom
