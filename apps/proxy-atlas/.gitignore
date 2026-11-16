@@ -1,0 +1,16 @@
+# Runtime data
+/storage/
+/data/raw/
+/data/*.sqlite
+/.env
+
+# Generated static site; go.php and router.php are source
+/public/*
+!/public/go.php
+!/public/router.php
+
+# Local editor / OS noise
+.DS_Store
+*.swp
+__pycache__/
+*.pyc

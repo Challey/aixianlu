@@ -1,0 +1,82 @@
+{
+  "updated_at": "2026-11-09",
+  "sources": [
+    {
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 8
+    },
+    {
+      "name": "The Verge AI",
+      "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 8
+    },
+    {
+      "name": "Google AI Blog",
+      "url": "https://blog.google/technology/ai/rss/",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 7
+    },
+    {
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 7
+    },
+    {
+      "name": "MIT Technology Review AI",
+      "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 7
+    },
+    {
+      "name": "Wired AI",
+      "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "lang": "en",
+      "ai_only": true,
+      "weight": 6
+    },
+    {
+      "name": "量子位",
+      "url": "https://www.qbitai.com/feed",
+      "lang": "zh",
+      "ai_only": true,
+      "weight": 8
+    },
+    {
+      "name": "IT之家",
+      "url": "https://www.ithome.com/rss/",
+      "lang": "zh",
+      "ai_only": false,
+      "weight": 5
+    },
+    {
+      "name": "雷锋网",
+      "url": "https://www.leiphone.com/feed",
+      "lang": "zh",
+      "ai_only": false,
+      "weight": 5
+    },
+    {
+      "name": "极客公园",
+      "url": "https://www.geekpark.net/rss",
+      "lang": "zh",
+      "ai_only": false,
+      "weight": 5
+    },
+    {
+      "name": "少数派",
+      "url": "https://sspai.com/feed",
+      "lang": "zh",
+      "ai_only": false,
+      "weight": 4
+    }
+  ]
+}

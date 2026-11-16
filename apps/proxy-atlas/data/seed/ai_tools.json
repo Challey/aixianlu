@@ -1,0 +1,181 @@
+{
+  "updated_at": "2026-11-09",
+  "tools": [
+    {
+      "slug": "chatgpt",
+      "name": "ChatGPT",
+      "vendor": "OpenAI",
+      "category": "chat",
+      "tagline": "对话、写作、代码与通用问答",
+      "summary": "OpenAI 的通用对话产品，网页端、桌面端、移动端与 API 都可能用到。网络侧更看重稳定长连接、流式输出和登录环境的一致性。",
+      "requirements": [
+        "官方可用地区、套餐与功能范围以 OpenAI 页面为准。",
+        "网页端和 App 的回复为流式输出，丢包或高延迟会表现为卡顿、断流。",
+        "登录、验证码、支付与团队协作可能叠加额外风控。"
+      ],
+      "regions": ["美国", "日本", "新加坡", "香港"],
+      "network_traits": ["流式输出", "长连接", "低延迟", "文件上传"],
+      "ip_sensitivity": "中高：机房 IP 或频繁变化的出口地区可能触发额外验证，具体以账号表现为准。",
+      "account_risk": "频繁切换出口地区、多人共用账号或异常登录，可能触发验证码、临时限制或订阅风控。",
+      "official_url": "https://chatgpt.com/",
+      "official_note": "本站与 OpenAI 无隶属关系；地区可用性、套餐价格与功能以官方页面为准。",
+      "status": "published",
+      "sort_order": 10,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "claude",
+      "name": "Claude",
+      "vendor": "Anthropic",
+      "category": "chat",
+      "tagline": "长文本、写作与文档分析",
+      "summary": "Anthropic 的对话产品，长上下文、文档分析和写作场景使用较多。地区可用性与账号登录环境对体验影响较大。",
+      "requirements": [
+        "官方支持地区、套餐与模型范围以 Anthropic 页面为准。",
+        "长文本和文件上传会增加上行数据量，上传带宽与丢包率会影响体验。",
+        "登录环境频繁变化可能触发验证，账号地区与支付资料需保持一致。"
+      ],
+      "regions": ["美国", "日本", "新加坡"],
+      "network_traits": ["长上下文", "流式输出", "文件上传", "长连接"],
+      "ip_sensitivity": "较高：地区限制与登录环境变化对可用性影响明显，具体以账号表现为准。",
+      "account_risk": "共享账号、频繁切换地区或异常登录可能触发验证；付费订阅与 API 的可用范围以官方为准。",
+      "official_url": "https://claude.ai/",
+      "official_note": "本站与 Anthropic 无隶属关系；地区可用性与套餐以官方页面为准。",
+      "status": "published",
+      "sort_order": 20,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "claude-code",
+      "name": "Claude Code",
+      "vendor": "Anthropic",
+      "category": "coding",
+      "tagline": "终端里的 AI 编程代理",
+      "summary": "面向终端的 AI 编程代理，会在本地读取代码、调用模型并连续执行任务。相比聊天，更依赖长时间稳定连接和低丢包。",
+      "requirements": [
+        "需要稳定的持续连接，长任务中断会丢失上下文或中断执行。",
+        "代码上下文上传量较大，上行带宽和丢包率会直接影响体验。",
+        "订阅、API 配额与地区可用性以 Anthropic 官方为准。"
+      ],
+      "regions": ["美国", "日本", "新加坡"],
+      "network_traits": ["长任务", "持续连接", "代码上传", "流式输出"],
+      "ip_sensitivity": "较高：长任务期间切换出口地区或 IP，可能导致会话中断或触发风控。",
+      "account_risk": "长任务运行期间保持节点稳定比追求最低延迟更重要；账号与配额限制以官方为准。",
+      "official_url": "https://www.anthropic.com/claude-code",
+      "official_note": "本站与 Anthropic 无隶属关系；Claude Code 的安装、账号与配额以官方文档为准。",
+      "status": "published",
+      "sort_order": 30,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "gemini",
+      "name": "Gemini",
+      "vendor": "Google",
+      "category": "chat",
+      "tagline": "多模态对话与 Google 生态协作",
+      "summary": "Google 的对话与多模态产品，常与 Google 账号、Workspace 和 AI Studio 一起使用。网络侧要兼顾 Google 服务的连通性和账号地区一致性。",
+      "requirements": [
+        "官方可用地区、账号类型与功能范围以 Google 页面为准。",
+        "图片、文档和多模态输入会增加上行数据量。",
+        "Google 账号地区、支付资料与登录环境应尽量保持一致。"
+      ],
+      "regions": ["美国", "日本", "新加坡"],
+      "network_traits": ["多模态", "流式输出", "Google 账号", "文件上传"],
+      "ip_sensitivity": "中高：Google 账号对登录环境和地区变化较敏感，具体以账号表现为准。",
+      "account_risk": "账号地区、支付资料与登录环境频繁变化可能触发验证；Workspace 还会受管理员策略影响。",
+      "official_url": "https://gemini.google.com/",
+      "official_note": "本站与 Google 无隶属关系；地区可用性与套餐以官方页面为准。",
+      "status": "published",
+      "sort_order": 40,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "cursor",
+      "name": "Cursor",
+      "vendor": "Anysphere",
+      "category": "coding",
+      "tagline": "AI 原生代码编辑器",
+      "summary": "基于编辑器的 AI 编程工具，补全、对话和 Agent 模式会持续请求模型服务。网络质量直接影响补全延迟和长任务稳定性。",
+      "requirements": [
+        "补全请求频繁，延迟和丢包对体验影响明显。",
+        "Agent 模式会连续执行多步任务，需要稳定连接。",
+        "登录、订阅与模型额度以 Cursor 官方为准。"
+      ],
+      "regions": ["美国", "日本", "新加坡", "香港"],
+      "network_traits": ["低延迟", "高频请求", "长任务", "代码上传"],
+      "ip_sensitivity": "中：登录环境变化可能影响会话，具体以账号表现为准。",
+      "account_risk": "频繁切换出口地区可能导致登录失效或额度异常；团队账号需遵守管理员策略。",
+      "official_url": "https://cursor.com/",
+      "official_note": "本站与 Cursor / Anysphere 无隶属关系；订阅与功能以官方页面为准。",
+      "status": "published",
+      "sort_order": 50,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "copilot",
+      "name": "GitHub Copilot",
+      "vendor": "GitHub / Microsoft",
+      "category": "coding",
+      "tagline": "IDE 内的代码补全与对话",
+      "summary": "GitHub 的 AI 编程助手，覆盖 VS Code、JetBrains 等编辑器。企业账号还会受组织策略与网络白名单影响。",
+      "requirements": [
+        "官方支持地区、账号类型与企业策略以 GitHub 页面为准。",
+        "代码补全请求频繁，低延迟连接能明显改善体验。",
+        "组织版与企业版可能要求额外网络策略或代理配置。"
+      ],
+      "regions": ["美国", "日本", "新加坡"],
+      "network_traits": ["代码补全", "高频请求", "IDE 集成", "企业策略"],
+      "ip_sensitivity": "中低：主要受账号与组织策略影响，具体以官方为准。",
+      "account_risk": "组织策略、账号地区与订阅状态可能影响可用性；企业环境需遵守管理员配置。",
+      "official_url": "https://github.com/features/copilot",
+      "official_note": "本站与 GitHub / Microsoft 无隶属关系；套餐与功能以官方页面为准。",
+      "status": "published",
+      "sort_order": 60,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "qoder",
+      "name": "Qoder 国际版",
+      "vendor": "Alibaba",
+      "category": "coding",
+      "tagline": "面向国际版的 AI 编程 IDE",
+      "summary": "Qoder 国际版面向海外账号与订阅体系，提供代码理解、补全与 Agent 能力。网络侧关注登录、模型请求和长任务连接的稳定性；本页为独立整理，非官方说明。",
+      "requirements": [
+        "国际版账号、订阅与地区可用性以 Qoder 官方页面为准。",
+        "代码补全和 Agent 任务会持续请求模型服务，需要稳定连接。",
+        "登录与支付环境尽量保持一致，避免频繁切换地区。"
+      ],
+      "regions": ["新加坡", "日本", "美国", "香港"],
+      "network_traits": ["代码补全", "Agent 任务", "持续连接", "代码上传"],
+      "ip_sensitivity": "中：国际版账号体系与地区策略可能影响登录，具体以官方说明为准。",
+      "account_risk": "国际版与国内产品的账号、订阅和功能范围可能不同；请以 Qoder 官方说明为准。",
+      "official_url": "https://qoder.com/",
+      "official_note": "本站与 Qoder / 阿里无隶属关系；页面仅做网络需求整理，不构成官方说明。",
+      "status": "published",
+      "sort_order": 70,
+      "last_verified": "2026-11-09"
+    },
+    {
+      "slug": "perplexity",
+      "name": "Perplexity",
+      "vendor": "Perplexity AI",
+      "category": "search",
+      "tagline": "带引用的 AI 搜索",
+      "summary": "以搜索问答和引用来源为核心，页面会持续发起检索和流式生成请求。网络侧关注首屏速度、流式稳定性和登录环境。",
+      "requirements": [
+        "检索与生成是连续请求，首屏延迟和丢包会影响体验。",
+        "登录、订阅与使用额度以 Perplexity 官方为准。",
+        "引用来源跳转较多，需要稳定的外部访问能力。"
+      ],
+      "regions": ["美国", "日本", "新加坡"],
+      "network_traits": ["AI 搜索", "流式输出", "连续请求", "引用跳转"],
+      "ip_sensitivity": "中：登录环境频繁变化可能触发验证，具体以账号表现为准。",
+      "account_risk": "Pro 订阅与地区可用性以官方为准；共享账号可能触发登录验证。",
+      "official_url": "https://www.perplexity.ai/",
+      "official_note": "本站与 Perplexity AI 无隶属关系；套餐与功能以官方页面为准。",
+      "status": "published",
+      "sort_order": 80,
+      "last_verified": "2026-11-09"
+    }
+  ]
+}
