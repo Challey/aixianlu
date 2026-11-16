@@ -4,10 +4,12 @@
 /data/*.sqlite
 /.env
 
-# Generated static site; go.php and router.php are source
+# Generated static site; PHP entry points, admin and API are source
 /public/*
 !/public/go.php
 !/public/router.php
+!/public/admin/
+!/public/api/
 
 # Local editor / OS noise
 .DS_Store
