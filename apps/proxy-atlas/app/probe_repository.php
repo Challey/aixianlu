@@ -524,3 +524,55 @@ function probe_prune(int $days = 30): int
     db()->prepare('DELETE FROM probe_snapshots WHERE hour < ?')->execute([$cutoff]);
     return $deleted;
 }
+
+/**
+ * Human-readable catalogue of the default probe targets (mirrors
+ * probes/src/aixianlu_probe/targets.py). Used by the public /status/ page so
+ * raw target names never have to be shown on their own.
+ */
+function probe_target_catalog(): array
+{
+    return [
+        'openai-api' => ['label' => 'OpenAI 模型列表', 'control' => false],
+        'openai-chat' => ['label' => 'OpenAI Chat', 'control' => false],
+        'openai-embeddings' => ['label' => 'OpenAI Embeddings', 'control' => false],
+        'claude-api' => ['label' => 'Claude Messages', 'control' => false],
+        'claude-web' => ['label' => 'Claude 网页端', 'control' => false],
+        'gemini-api' => ['label' => 'Gemini 模型列表', 'control' => false],
+        'gemini-flash' => ['label' => 'Gemini Flash', 'control' => false],
+        'cursor-api' => ['label' => 'Cursor API', 'control' => false],
+        'github-api' => ['label' => 'GitHub 对照', 'control' => true],
+        'cloudflare' => ['label' => 'Cloudflare 对照', 'control' => true],
+    ];
+}
+
+/**
+ * Aggregate numbers for the public status page (no probe identifiers).
+ */
+function probe_status_meta(int $hours = 24): array
+{
+    probe_ensure_schema();
+    $since = gmdate('Y-m-d H:00', time() - max(1, $hours) * 3600);
+    $row = db()->prepare(
+        'SELECT COUNT(*) AS groups, COALESCE(SUM(samples), 0) AS samples,
+                COUNT(DISTINCT isp) AS isps, COUNT(DISTINCT name) AS targets,
+                MAX(hour) AS last_hour
+         FROM probe_snapshots WHERE hour >= ?'
+    );
+    $row->execute([$since]);
+    $stats = $row->fetch() ?: [];
+    $probes = db()->prepare(
+        'SELECT COUNT(DISTINCT probe_id) AS n FROM probe_reports WHERE received_at >= ?'
+    );
+    $probes->execute([$since]);
+    return [
+        'groups' => (int) ($stats['groups'] ?? 0),
+        'samples' => (int) ($stats['samples'] ?? 0),
+        'isps' => (int) ($stats['isps'] ?? 0),
+        'targets' => (int) ($stats['targets'] ?? 0),
+        'last_hour' => $stats['last_hour'] ?? null,
+        'probes' => (int) $probes->fetchColumn(),
+        'generated_at' => gmdate('c'),
+        'generated_label' => date('Y-m-d H:i'),
+    ];
+}

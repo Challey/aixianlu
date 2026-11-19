@@ -45,6 +45,7 @@ $noindex = $noindex ?? false;
       <a class="<?= e(active_nav('/providers')) ?>" href="/providers/">机场对比</a>
       <a class="<?= e(active_nav('/ai')) ?>" href="/ai/">AI 工具</a>
       <a class="<?= e(active_nav('/news')) ?>" href="/news/">AI 前线</a>
+      <a class="<?= e(active_nav('/status')) ?>" href="/status/">实时状态</a>
       <a class="<?= e(active_nav('/guide')) ?>" href="/guide/">选择指南</a>
       <a class="<?= e(active_nav('/match')) ?>" href="/match/">智能匹配</a>
       <a class="<?= e(active_nav('/partner')) ?>" href="/partner/">代理合作</a>
@@ -74,6 +75,7 @@ $noindex = $noindex ?? false;
         <a href="/providers/">全部机场</a>
         <a href="/ai/">AI 工具</a>
         <a href="/news/">AI 前线</a>
+        <a href="/status/">实时状态</a>
         <a href="/guide/">选择指南</a>
         <a href="/compare/">并排对比</a>
         <a href="/match/">智能匹配</a>

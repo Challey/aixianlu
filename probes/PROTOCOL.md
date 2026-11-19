@@ -150,6 +150,8 @@ GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-api
 
 returns aggregated `samples`, `success_rate`, `reachable_rate`, `avg_latency_ms`, `worst_p95_latency_ms`, `region_block_count`, `rate_limit_count`, `hours_covered`, `last_hour` per `name` + `model` + `isp`.
 
+The reference deployment renders this at `/status/` (static bake of the last 24 h plus an in-page refresh against the same endpoint). Any public rendering must keep `samples` and `hours_covered` visible next to the rates, and must not present `reachable` without `success` as "the service works".
+
 ### Limits summary (receiver defaults)
 
 | Setting | Default | Meaning |

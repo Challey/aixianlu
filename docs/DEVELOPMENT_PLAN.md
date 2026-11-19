@@ -51,6 +51,7 @@
 - [x] 实现 Python 轻量 CLI 探针（`probes/`，10 个默认目标含 5 个模型级端点；TTFB、TLS 版本、重试、错误双层分类）
 - [x] 简单防刷（token 哈希存储 + HMAC-SHA256 规范 JSON 签名 + 时间窗 + 按探针限速 + 去重 + 设备指纹 ID）
 - [x] 在 proxy-atlas 增加「探针数据接收」接口：`/api/v1/metrics/report`、`/api/v1/metrics/latest`、后台「探针数据」页、`bin/probe_token.php`、`bin/probe_snapshot.php`
+- [x] 公开「实时状态」页 `/status/`：静态烘焙最近 24 小时快照 + 只读 API 刷新，可按窗口/运营商/端点筛选，并标注样本量、覆盖小时与「仅可达」口径
 - [x] 开源仓库 + README，引导用户贡献（`probes/README.md`，含隐私与密钥说明）
 - [ ] 第一批外部贡献者：社区帖 + 一键安装脚本 + 贡献榜单页面
 - [ ] 定时/守护模式与自动上报（v0.3.0）

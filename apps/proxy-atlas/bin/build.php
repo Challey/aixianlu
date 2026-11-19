@@ -59,7 +59,7 @@ foreach (['index.html', '404.html', 'sitemap.xml', 'robots.txt'] as $file) {
         unlink($out . '/' . $file);
     }
 }
-foreach (['providers', 'compare', 'network', 'match', 'partner', 'about', 'guide', 'ai', 'news', 'data', 'my'] as $dir) {
+foreach (['providers', 'compare', 'network', 'match', 'partner', 'about', 'guide', 'ai', 'news', 'data', 'my', 'status'] as $dir) {
     remove_tree($out . '/' . $dir);
 }
 
@@ -131,6 +131,25 @@ write_file($out . '/network/index.html', render_page('network', [
     'title' => '上游网络：专线、中转与协议分布 — ' . $siteName,
     'description' => '看懂 IPLC/IEPL 专线、公网中转与直连的成本差异，查看 ' . $stats['providers'] . ' 家机场的线路类型、协议与地区覆盖分布。',
     'canonical' => '/network/',
+]));
+
+$probeRows = probe_latest_metrics(24);
+$probeConfig = [
+    'targets' => probe_target_catalog(),
+    'windows' => [6, 24, 72, 168],
+    'names' => array_keys(probe_target_catalog()),
+    'repo' => 'https://github.com/Challey/aixianlu/tree/main/probes',
+];
+$probeStatusMeta = probe_status_meta(24);
+
+write_file($out . '/status/index.html', render_page('status', [
+    'probe_rows' => $probeRows,
+    'probe_meta' => $probeStatusMeta,
+    'probe_config' => $probeConfig,
+    'title' => 'AI 服务连通性状态：OpenAI / Claude / Gemini / Cursor 实测 — ' . $siteName,
+    'description' => '社区开源探针从中国大陆实测 OpenAI、Claude、Gemini、Cursor 等端点的可达率、可用率与 TTFB，按小时聚合公开，不含 IP 与账号信息。',
+    'canonical' => '/status/',
+    'body_class' => 'page-status',
 ]));
 
 $guideJsonLd = [
@@ -464,7 +483,7 @@ write_file($out . '/news/feed.xml', $feed);
 
 $sitemap = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 $sitemap .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-$staticRoutes = ['/', '/providers/', '/ai/', '/news/', '/compare/', '/match/', '/network/', '/guide/', '/partner/', '/about/'];
+$staticRoutes = ['/', '/providers/', '/ai/', '/news/', '/compare/', '/match/', '/network/', '/status/', '/guide/', '/partner/', '/about/'];
 foreach ($staticRoutes as $route) {
     $sitemap .= '  <url><loc>' . htmlspecialchars(site_url($route), ENT_XML1) . '</loc><lastmod>' . e($updated) . '</lastmod></url>' . "\n";
 }

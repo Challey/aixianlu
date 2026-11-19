@@ -269,6 +269,7 @@ php bin/probe_snapshot.php --hours=48
 - 上报是写操作，`storage/`（或 `PROXY_DB` 所在目录）必须对 `www-data` 可写；SQLite 已开 WAL，与构建任务并发安全。
 - 若走 Cloudflare，把 `/api/v1/metrics/report` 设为不缓存、跳过速率限制之外的 WAF 挑战（否则探针会被 JS challenge 挡住返回 403）；`/api/v1/metrics/latest` 可保留 60 秒边缘缓存。
 - 后台 `/admin/probes.php` 看质量快照与最近上报；token 撤销即刻生效（`403`）。
+- 前台 `/status/` 是静态烘焙的：数字新鲜度取决于「快照聚合 + `bin/build.php`」的频率，页面右上角显示的就是烘焙时间；访客点「刷新」或切换筛选会直接走 `/api/v1/metrics/latest`，因此不必为探针单独提高构建频率。若希望静态部分也逐小时更新，可把聚合任务改成 `php bin/probe_snapshot.php --hours=6 && php bin/build.php`。
 - 公开 API 只返回聚合值，不含探针 ID、IP 与原始载荷；对外展示时按 `samples` 与 `hours_covered` 标注样本量与时间窗。
 
 ## 6. 备份与恢复

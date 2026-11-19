@@ -53,6 +53,7 @@ php -S 127.0.0.1:8080 -t public public/router.php
 | `/compare/?p=a,b,c` | 最多 4 家并排对比 |
 | `/match/` | 三步智能匹配，按预算/流量/偏好筛出 4 家 |
 | `/network/` | 上游网络：线路类型、协议、地区聚合 |
+| `/status/` | AI 服务连通性状态：开源探针实测的可达率/可用率/TTFB（静态烘焙 + 只读 API 刷新） |
 | `/guide/` | 选择指南：直连 / 中转 / IPLC·IEPL 专线科普、对比表与按场景选型建议 |
 | `/partner/` | 代理合作说明与申请表单 |
 | `/about/` | 数据口径、来源、隐私与免责声明 |
@@ -271,6 +272,7 @@ python3 bin/collect_news.py --limit 20 --prune-days 90
 - 接收：`POST /api/v1/metrics/report`（`public/api/metrics-report.php`）→ `probe_reports` + `probe_results`。
 - 只读聚合：`GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-chat`（`public/api/metrics-latest.php`，60 秒缓存，`noindex`）。返回按 `name/model/isp` 聚合的样本数、可达率、可用率、平均 TTFB、最差 P95、区域拦截与限流计数；**不返回探针 ID、IP 或原始载荷**。
 - 后台：「探针数据」页发放/撤销 token（token 明文只在生成后那一次显示，经会话传递，不进 URL）、看窗口内质量快照与最近上报。
+- 前台：`/status/`（`templates/status.php`）公开展示最近 24 小时快照，可按统计窗口 / 运营商 / 目标端点筛选；页面本身是静态烘焙的，「刷新」按钮走 `GET /api/v1/metrics/latest`，因此首屏不依赖数据库，也能拿到最新一小时的聚合。
 
 ### 防刷与签名
 
@@ -295,7 +297,7 @@ php bin/probe_snapshot.php --hours=48                     # 小时快照聚合
 php bin/probe_snapshot.php --hours=6 --prune-days=30      # 聚合并清理明细（建议每小时 cron）
 ```
 
-表结构在 `app/probe_schema.sql`，由 `ensure_schema()` 自动建表；时间统一按 UTC 存储与分桶。数据目前只用于后台与 API，尚未渲染进静态前台——接入前台展示时需与「风险雷达」口径一起标注采样来源与样本量。
+表结构在 `app/probe_schema.sql`，由 `ensure_schema()` 自动建表；时间统一按 UTC 存储与分桶。公开展示只出现在 `/status/`：口径与「风险雷达」保持一致——必须同时给出样本量、覆盖小时与采样来源，未配置密钥的模型级目标只说明“网络可达”，不写成“服务可用”。前台快照的新鲜度取决于 `bin/probe_snapshot.php` 与 `bin/build.php` 的 cron 频率（建议每小时），页面上的“数据生成”时间即为烘焙时间。
 
 ---
 

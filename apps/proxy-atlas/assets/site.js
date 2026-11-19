@@ -1111,6 +1111,124 @@
     fpBanner();
   }
 
+  /* ---------------------------------------------------------------------
+     Status page — refresh aggregated probe metrics from the public API
+     --------------------------------------------------------------------- */
+
+  function initStatusPage() {
+    var controls = $("[data-status-controls]");
+    if (!controls) return;
+    var body = $("[data-status-rows]");
+    var note = $("[data-status-note]");
+    var updated = $("[data-status-updated]");
+    var windowSel = $("[data-status-window]");
+    var ispSel = $("[data-status-isp]");
+    var nameSel = $("[data-status-name]");
+    var api = controls.getAttribute("data-api") || "/api/v1/metrics/latest";
+    var catalog = {};
+    try {
+      catalog = JSON.parse(controls.getAttribute("data-catalog") || "{}");
+    } catch (err) {
+      catalog = {};
+    }
+    var targets = catalog.targets || {};
+    var busy = false;
+
+    function pct(value) {
+      return value === null || value === undefined ? "—" : (Math.round(value * 1000) / 10).toLocaleString("zh-CN") + "%";
+    }
+
+    function ms(value) {
+      return value === null || value === undefined
+        ? "—"
+        : Math.round(value).toLocaleString("zh-CN") + " ms";
+    }
+
+    function pad(n) {
+      return (n < 10 ? "0" : "") + n;
+    }
+
+    function localStamp(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+
+    function statusBadge(row) {
+      if (row.reachable_rate === null || row.reachable_rate === undefined) return ["badge", "数据不足"];
+      if (row.reachable_rate < 0.5) return ["badge badge--amber", "连接困难"];
+      if (row.success_rate === null || row.success_rate === undefined) return ["badge", "可达"];
+      if (row.success_rate >= 0.95) return ["badge badge--green", "通畅"];
+      if (row.success_rate >= 0.7) return ["badge badge--amber", "不稳定"];
+      return ["badge", "仅可达"];
+    }
+
+    function rowHTML(row) {
+      var target = targets[row.name] || {};
+      var vendor = target.label || row.name;
+      var badge = statusBadge(row);
+      var flags = [];
+      if (row.region_block_count > 0) flags.push("区域拦截 " + row.region_block_count + " 次");
+      if (row.rate_limit_count > 0) flags.push("限流 " + row.rate_limit_count + " 次");
+      var sub = row.name + (row.model ? " · " + row.model : "") + (target.control ? " · 对照组" : "");
+      return '<tr>'
+        + '<td class="col-name"><b>' + escapeHtml(vendor) + '</b>'
+        + '<span class="sub">' + escapeHtml(sub) + '</span></td>'
+        + '<td>' + (row.isp ? '<span class="badge badge--line">' + escapeHtml(row.isp) + '</span>' : '<span class="sub">未标注</span>') + '</td>'
+        + '<td class="num"><b>' + pct(row.success_rate) + '</b></td>'
+        + '<td class="num">' + pct(row.reachable_rate) + '</td>'
+        + '<td class="num">' + ms(row.avg_latency_ms) + '</td>'
+        + '<td class="num">' + ms(row.worst_p95_latency_ms) + '</td>'
+        + '<td class="num">' + (row.samples || 0)
+        + '<span class="sub">' + escapeHtml((row.hours_covered || 0) + " 小时" + (flags.length ? " · " + flags.join(" · ") : "")) + '</span></td>'
+        + '<td><span class="' + badge[0] + '">' + badge[1] + '</span></td>'
+        + "</tr>";
+    }
+
+    function setNote(text, kind) {
+      if (!note) return;
+      note.textContent = text || "";
+      note.className = "status-note" + (kind ? " is-" + kind : "");
+    }
+
+    function refresh() {
+      if (busy || !body) return;
+      busy = true;
+      var params = new URLSearchParams();
+      params.set("hours", windowSel ? windowSel.value : "24");
+      if (ispSel && ispSel.value) params.set("isp", ispSel.value);
+      if (nameSel && nameSel.value) params.set("name", nameSel.value);
+      setNote("更新中…", "busy");
+      fetch(api + "?" + params.toString(), { headers: { Accept: "application/json" } })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var rows = data && Array.isArray(data.rows) ? data.rows : [];
+          body.innerHTML = rows.length
+            ? rows.map(rowHTML).join("")
+            : '<tr><td colspan="8"><div class="empty-state"><b>当前筛选没有探针数据</b>换个运营商或扩大统计窗口，或运行开源探针贡献测量结果。</div></td></tr>';
+          if (updated && data && data.generated_at) {
+            var stamp = localStamp(data.generated_at);
+            if (stamp) updated.textContent = stamp;
+          }
+          var samples = rows.reduce(function (sum, row) { return sum + (row.samples || 0); }, 0);
+          setNote("已更新 · " + rows.length + " 组 / " + samples + " 次测量", "");
+          busy = false;
+        })
+        .catch(function () {
+          setNote("刷新失败，当前为构建时数据", "error");
+          busy = false;
+        });
+    }
+
+    on($("[data-status-refresh]"), "click", refresh);
+    [windowSel, ispSel, nameSel].forEach(function (el) {
+      on(el, "change", refresh);
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initNav();
     initCompareInputs();
@@ -1121,6 +1239,7 @@
     initAgentForm();
     initNewsFilter();
     initHomeSearch();
+    initStatusPage();
     fpInitGlobal();
     fpInitMy();
     syncCompareUI(readCompare());

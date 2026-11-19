@@ -111,7 +111,7 @@ php apps/proxy-atlas/bin/probe_token.php revoke probe-xxxxxxxx
 php apps/proxy-atlas/bin/probe_snapshot.php --hours=48 --prune-days=30
 ```
 
-后台「探针数据」页可发 token、看快照与最近上报；公开只读接口：
+后台「探针数据」页可发 token、看快照与最近上报；聚合结果公开在前台 `/status/`（实时状态页，可按窗口 / 运营商 / 端点筛选），只读接口：
 
 ```
 GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-chat
