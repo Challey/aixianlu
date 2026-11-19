@@ -493,7 +493,7 @@ function probe_latest_metrics(int $hours = 24, string $isp = '', string $name = 
     $rows = [];
     foreach ($stmt->fetchAll() as $row) {
         $samples = (int) $row['samples'];
-        $rows[] = [
+        $item = [
             'name' => $row['name'],
             'model' => $row['model'],
             'isp' => $row['isp'],
@@ -507,8 +507,179 @@ function probe_latest_metrics(int $hours = 24, string $isp = '', string $name = 
             'hours_covered' => (int) $row['hours_covered'],
             'last_hour' => $row['last_hour'],
         ];
+        $item['stability'] = probe_stability($item);
+        $rows[] = $item;
     }
+
+    // Neutral, reproducible ordering for every consumer of this function:
+    // most evidence first, control group pinned last, name as tie-breaker.
+    // Commercial relationships are not an input here.
+    $controls = [];
+    foreach (probe_target_catalog() as $key => $target) {
+        $controls[$key] = !empty($target['control']) ? 1 : 0;
+    }
+    usort($rows, static function (array $a, array $b) use ($controls): int {
+        $ca = $controls[$a['name']] ?? 0;
+        $cb = $controls[$b['name']] ?? 0;
+        if ($ca !== $cb) {
+            return $ca <=> $cb;
+        }
+        if ($a['samples'] !== $b['samples']) {
+            return $b['samples'] <=> $a['samples'];
+        }
+        return strcmp($a['name'], $b['name']);
+    });
+
     return $rows;
+}
+
+/**
+ * Composite stability score for one aggregated row (0–100).
+ *
+ * Deliberately simple and fully public: 50% 可用率 + 20% 可达率 + 30% 延迟一致性
+ * (P95 与均值的接近程度)，再按区域拦截与限流扣分。样本不足时标记 confidence=low，
+ * 前台必须一并展示样本量，不能让 1 次测量的 100% 与 200 次测量的 100% 看起来一样。
+ */
+function probe_stability(array $row): ?array
+{
+    $samples = (int) ($row['samples'] ?? 0);
+    $success = $row['success_rate'] ?? null;
+    $reachable = $row['reachable_rate'] ?? null;
+    if ($samples <= 0 || $success === null || $reachable === null) {
+        return null;
+    }
+    $avg = $row['avg_latency_ms'] !== null ? (float) $row['avg_latency_ms'] : null;
+    $p95 = $row['worst_p95_latency_ms'] !== null ? (float) $row['worst_p95_latency_ms'] : null;
+    $jitter = null;
+    if ($avg !== null && $avg > 0 && $p95 !== null && $p95 >= $avg) {
+        $jitter = max(0.0, min(1.0, 1 - ($p95 - $avg) / $avg));
+    }
+
+    $base = 0.5 * (float) $success + 0.2 * (float) $reachable;
+    $score = $jitter === null ? ($base / 0.7) * 100 : ($base + 0.3 * $jitter) * 100;
+    $penalty = min(20, (int) ($row['region_block_count'] ?? 0) * 10) + min(10, (int) ($row['rate_limit_count'] ?? 0) * 5);
+    $score = max(0, min(100, $score - $penalty));
+
+    $grades = [90 => 'A', 75 => 'B', 60 => 'C', 0 => 'D'];
+    $grade = 'D';
+    foreach ($grades as $min => $label) {
+        if ($score >= $min) {
+            $grade = $label;
+            break;
+        }
+    }
+
+    return [
+        'score' => (int) round($score),
+        'grade' => $grade,
+        'confidence' => $samples >= 5 ? 'ok' : 'low',
+        'samples' => $samples,
+        'jitter_score' => $jitter === null ? null : round($jitter, 3),
+        'penalty' => $penalty,
+    ];
+}
+
+/**
+ * Weighted headline numbers for the public status page.
+ *
+ * Everything is derived from the same rows the table renders, so the hero
+ * figures can never drift away from the detail. Control-group endpoints
+ * (GitHub / Cloudflare) are kept out of the headline: they exist to tell a
+ * dead target apart from a dead probe, and averaging them in would flatter the
+ * score. They are reported separately so the page can prove the measurement
+ * itself was valid.
+ */
+function probe_status_summary(int $hours = 24, string $isp = '', string $name = ''): array
+{
+    $rows = probe_latest_metrics($hours, $isp, $name);
+    $catalog = probe_target_catalog();
+    $samples = 0;
+    $successWeighted = 0.0;
+    $reachableWeighted = 0.0;
+    $latencyWeighted = 0.0;
+    $latencySamples = 0;
+    $p95Worst = null;
+    $stabilityWeighted = 0.0;
+    $stabilitySamples = 0;
+    $thinGroups = 0;
+    $blocks = 0;
+    $limits = 0;
+    $targets = [];
+    $isps = [];
+    $controlSamples = 0;
+    $controlReachableWeighted = 0.0;
+    $controlLatencyWeighted = 0.0;
+    $controlLatencySamples = 0;
+    $controlNames = [];
+
+    foreach ($rows as $row) {
+        $n = (int) $row['samples'];
+        if (!empty($catalog[$row['name']]['control'])) {
+            $controlSamples += $n;
+            if ($row['reachable_rate'] !== null) {
+                $controlReachableWeighted += (float) $row['reachable_rate'] * $n;
+            }
+            if ($row['avg_latency_ms'] !== null) {
+                $controlLatencyWeighted += (float) $row['avg_latency_ms'] * $n;
+                $controlLatencySamples += $n;
+            }
+            $controlNames[(string) $row['name']] = true;
+            continue;
+        }
+        $samples += $n;
+        if ($row['success_rate'] !== null) {
+            $successWeighted += (float) $row['success_rate'] * $n;
+        }
+        if ($row['reachable_rate'] !== null) {
+            $reachableWeighted += (float) $row['reachable_rate'] * $n;
+        }
+        if ($row['avg_latency_ms'] !== null) {
+            $latencyWeighted += (float) $row['avg_latency_ms'] * $n;
+            $latencySamples += $n;
+        }
+        if ($row['worst_p95_latency_ms'] !== null) {
+            $p95Worst = $p95Worst === null ? (float) $row['worst_p95_latency_ms'] : max($p95Worst, (float) $row['worst_p95_latency_ms']);
+        }
+        // Weight every scored group, but the page still labels the result 'low'
+        // until the window as a whole has enough samples (see confidence below).
+        $stability = $row['stability'] ?? null;
+        if (is_array($stability) && isset($stability['score'])) {
+            $stabilityWeighted += (int) $stability['score'] * $n;
+            $stabilitySamples += $n;
+            if ($stability['confidence'] !== 'ok') {
+                $thinGroups++;
+            }
+        }
+        $blocks += (int) $row['region_block_count'];
+        $limits += (int) $row['rate_limit_count'];
+        $targets[$row['name']] = true;
+        $value = trim((string) $row['isp']);
+        if ($value !== '') {
+            $isps[$value] = true;
+        }
+    }
+
+    return [
+        'control' => [
+            'samples' => $controlSamples,
+            'names' => array_keys($controlNames),
+            'reachable_rate' => $controlSamples > 0 ? round($controlReachableWeighted / $controlSamples, 4) : null,
+            'avg_latency_ms' => $controlLatencySamples > 0 ? round($controlLatencyWeighted / $controlLatencySamples, 1) : null,
+        ],
+        'window_hours' => max(1, $hours),
+        'samples' => $samples,
+        'target_count' => count($targets),
+        'isp_count' => count($isps),
+        'success_rate' => $samples > 0 ? round($successWeighted / $samples, 4) : null,
+        'reachable_rate' => $samples > 0 ? round($reachableWeighted / $samples, 4) : null,
+        'avg_latency_ms' => $latencySamples > 0 ? round($latencyWeighted / $latencySamples, 1) : null,
+        'worst_p95_latency_ms' => $p95Worst !== null ? round($p95Worst, 1) : null,
+        'stability_score' => $stabilitySamples > 0 ? (int) round($stabilityWeighted / $stabilitySamples) : null,
+        'thin_groups' => $thinGroups,
+        'region_block_count' => $blocks,
+        'rate_limit_count' => $limits,
+        'confidence' => $samples >= 20 ? 'ok' : ($samples > 0 ? 'low' : 'none'),
+    ];
 }
 
 /**
@@ -533,16 +704,16 @@ function probe_prune(int $days = 30): int
 function probe_target_catalog(): array
 {
     return [
-        'openai-api' => ['label' => 'OpenAI 模型列表', 'control' => false],
-        'openai-chat' => ['label' => 'OpenAI Chat', 'control' => false],
-        'openai-embeddings' => ['label' => 'OpenAI Embeddings', 'control' => false],
-        'claude-api' => ['label' => 'Claude Messages', 'control' => false],
-        'claude-web' => ['label' => 'Claude 网页端', 'control' => false],
-        'gemini-api' => ['label' => 'Gemini 模型列表', 'control' => false],
-        'gemini-flash' => ['label' => 'Gemini Flash', 'control' => false],
-        'cursor-api' => ['label' => 'Cursor API', 'control' => false],
-        'github-api' => ['label' => 'GitHub 对照', 'control' => true],
-        'cloudflare' => ['label' => 'Cloudflare 对照', 'control' => true],
+        'openai-api' => ['label' => 'OpenAI 模型列表', 'control' => false, 'tool' => 'chatgpt'],
+        'openai-chat' => ['label' => 'OpenAI Chat', 'control' => false, 'tool' => 'chatgpt'],
+        'openai-embeddings' => ['label' => 'OpenAI Embeddings', 'control' => false, 'tool' => 'chatgpt'],
+        'claude-api' => ['label' => 'Claude Messages', 'control' => false, 'tool' => 'claude'],
+        'claude-web' => ['label' => 'Claude 网页端', 'control' => false, 'tool' => 'claude'],
+        'gemini-api' => ['label' => 'Gemini 模型列表', 'control' => false, 'tool' => 'gemini'],
+        'gemini-flash' => ['label' => 'Gemini Flash', 'control' => false, 'tool' => 'gemini'],
+        'cursor-api' => ['label' => 'Cursor API', 'control' => false, 'tool' => 'cursor'],
+        'github-api' => ['label' => 'GitHub 对照', 'control' => true, 'tool' => ''],
+        'cloudflare' => ['label' => 'Cloudflare 对照', 'control' => true, 'tool' => ''],
     ];
 }
 
@@ -575,4 +746,93 @@ function probe_status_meta(int $hours = 24): array
         'generated_at' => gmdate('c'),
         'generated_label' => date('Y-m-d H:i'),
     ];
+}
+
+/**
+ * Endpoint × ISP matrix for the public status page.
+ *
+ * Built here (not in the template or in JavaScript) so the baked HTML, the
+ * live API and any future client show identical numbers from one formula.
+ */
+function probe_status_matrix(int $hours = 24, string $isp = '', string $name = ''): array
+{
+    $rows = probe_latest_metrics($hours, $isp, $name);
+    $catalog = probe_target_catalog();
+    $byName = [];
+    $ispTotals = [];
+
+    foreach ($rows as $row) {
+        $key = (string) $row['name'];
+        $cell = trim((string) ($row['isp'] ?? ''));
+        if ($cell === '') {
+            $cell = '未标注';
+        }
+        if (!isset($byName[$key])) {
+            $byName[$key] = [
+                'name' => $key,
+                'label' => (string) ($catalog[$key]['label'] ?? $key),
+                'tool' => (string) ($catalog[$key]['tool'] ?? ''),
+                'control' => !empty($catalog[$key]['control']),
+                'model' => null,
+                'samples' => 0,
+                'cells' => [],
+                'agg' => ['success' => 0.0, 'reachable' => 0.0, 'latency' => 0.0, 'latency_n' => 0, 'p95' => null, 'block' => 0, 'limit' => 0],
+            ];
+        }
+        if ($row['model'] !== null && $row['model'] !== '') {
+            $byName[$key]['model'] = (string) $row['model'];
+        }
+        $n = (int) $row['samples'];
+        $byName[$key]['samples'] += $n;
+        $byName[$key]['cells'][$cell] = $row;
+        if ($row['success_rate'] !== null) {
+            $byName[$key]['agg']['success'] += (float) $row['success_rate'] * $n;
+        }
+        if ($row['reachable_rate'] !== null) {
+            $byName[$key]['agg']['reachable'] += (float) $row['reachable_rate'] * $n;
+        }
+        if ($row['avg_latency_ms'] !== null) {
+            $byName[$key]['agg']['latency'] += (float) $row['avg_latency_ms'] * $n;
+            $byName[$key]['agg']['latency_n'] += $n;
+        }
+        if ($row['worst_p95_latency_ms'] !== null) {
+            $p95 = (float) $row['worst_p95_latency_ms'];
+            $byName[$key]['agg']['p95'] = $byName[$key]['agg']['p95'] === null ? $p95 : max($byName[$key]['agg']['p95'], $p95);
+        }
+        $byName[$key]['agg']['block'] += (int) $row['region_block_count'];
+        $byName[$key]['agg']['limit'] += (int) $row['rate_limit_count'];
+        $ispTotals[$cell] = ($ispTotals[$cell] ?? 0) + $n;
+    }
+
+    $out = [];
+    foreach ($byName as $entry) {
+        $agg = $entry['agg'];
+        $total = $entry['samples'];
+        $summary = [
+            'samples' => $total,
+            'success_rate' => $total > 0 ? round($agg['success'] / $total, 4) : null,
+            'reachable_rate' => $total > 0 ? round($agg['reachable'] / $total, 4) : null,
+            'avg_latency_ms' => $agg['latency_n'] > 0 ? round($agg['latency'] / $agg['latency_n'], 1) : null,
+            'worst_p95_latency_ms' => $agg['p95'] !== null ? round($agg['p95'], 1) : null,
+            'region_block_count' => $agg['block'],
+            'rate_limit_count' => $agg['limit'],
+        ];
+        $entry['total'] = $summary + ['stability' => probe_stability($summary)];
+        unset($entry['agg']);
+        $out[] = $entry;
+    }
+
+    usort($out, static function (array $a, array $b): int {
+        if ($a['control'] !== $b['control']) {
+            return ((int) $a['control']) <=> ((int) $b['control']);
+        }
+        return $b['samples'] <=> $a['samples'];
+    });
+
+    $columns = array_keys($ispTotals);
+    usort($columns, static function (string $a, string $b) use ($ispTotals): int {
+        return $ispTotals[$b] <=> $ispTotals[$a];
+    });
+
+    return ['isps' => $columns, 'rows' => $out];
 }

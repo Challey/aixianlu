@@ -6,7 +6,7 @@
 
 - 可运行形态：PHP 8 + SQLite + 预构建静态 HTML，位于 `apps/proxy-atlas/`，是 Phase 1 的过渡实现。
 - 数据规模：119 家机场、447 个套餐选项、8 个 AI 工具与每日 AI 新闻。
-- 开源探针：`probes/`（Python，v0.2.0）已可测连通性并签名上报，接收端与快照聚合在 `apps/proxy-atlas/`（`/api/v1/metrics/*`），协议见 `probes/PROTOCOL.md`；聚合结果公开在前台 `/status/`（实时状态页）。
+- 开源探针：`probes/`（Python，v0.2.0）已可测连通性并签名上报，接收端与快照聚合在 `apps/proxy-atlas/`（`/api/v1/metrics/*`），协议见 `probes/PROTOCOL.md`；聚合结果公开在前台 `/status/`：以「联合公开探测节点」的综合稳定度为主视觉，配端点 × 运营商矩阵、逐端点明细与公开评分口径（可用率 50% + 可达率 20% + 延迟一致性 30%，区域拦截与限流按次扣分），引导用户带着数据透明化购买。
 - 上线彩排：本地点对点全链路已通过（251 个 sitemap URL、4772 条内链、后台与接口、真实探针上报），结果与待确认项见 `docs/LAUNCH_REHEARSAL.md`。
 - 目标架构：Drupal 10/11 内容与数据后端 + Flutter Web 前端，规划见 `docs/architecture/aixianlu_architecture_and_monetization_masterplan_v1.1.md`，阶段拆解见 `docs/DEVELOPMENT_PLAN.md`。
 

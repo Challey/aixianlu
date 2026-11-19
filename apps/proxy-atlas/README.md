@@ -53,7 +53,7 @@ php -S 127.0.0.1:8080 -t public public/router.php
 | `/compare/?p=a,b,c` | 最多 4 家并排对比 |
 | `/match/` | 三步智能匹配，按预算/流量/偏好筛出 4 家 |
 | `/network/` | 上游网络：线路类型、协议、地区聚合 |
-| `/status/` | AI 服务连通性状态：开源探针实测的可达率/可用率/TTFB（静态烘焙 + 只读 API 刷新） |
+| `/status/` | 联合公开探测：稳定度评分、端点 × 运营商矩阵、可用率/可达率/TTFB 明细（静态烘焙 + 只读 API 刷新） |
 | `/guide/` | 选择指南：直连 / 中转 / IPLC·IEPL 专线科普、对比表与按场景选型建议 |
 | `/partner/` | 代理合作说明与申请表单 |
 | `/about/` | 数据口径、来源、隐私与免责声明 |
@@ -270,9 +270,11 @@ python3 bin/collect_news.py --limit 20 --prune-days 90
 开源探针（`probes/`，协议 v0.2.0，见 `probes/PROTOCOL.md`）把中国大陆到 AI 端点的连通性结果上报到这里。
 
 - 接收：`POST /api/v1/metrics/report`（`public/api/metrics-report.php`）→ `probe_reports` + `probe_results`。
-- 只读聚合：`GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-chat`（`public/api/metrics-latest.php`，60 秒缓存，`noindex`）。返回按 `name/model/isp` 聚合的样本数、可达率、可用率、平均 TTFB、最差 P95、区域拦截与限流计数；**不返回探针 ID、IP 或原始载荷**。
+- 只读聚合：`GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-chat`（`public/api/metrics-latest.php`，60 秒缓存，`noindex`）。返回 `summary`（窗口内综合稳定度、可用率、可达率、平均 TTFB、最差 P95、端点/运营商数）、`matrix`（端点 × 运营商稳定度矩阵，含每格样本量）、`rows`（逐 `name/model/isp` 明细）、`scoring`（评分公式、A/B/C/D 阈值、最小可信样本数）；**不返回探针 ID、IP 或原始载荷**。
 - 后台：「探针数据」页发放/撤销 token（token 明文只在生成后那一次显示，经会话传递，不进 URL）、看窗口内质量快照与最近上报。
-- 前台：`/status/`（`templates/status.php`）公开展示最近 24 小时快照，可按统计窗口 / 运营商 / 目标端点筛选；页面本身是静态烘焙的，「刷新」按钮走 `GET /api/v1/metrics/latest`，因此首屏不依赖数据库，也能拿到最新一小时的聚合。
+- 前台：`/status/`（`templates/status.php`）主视觉是「联合公开探测节点」的综合稳定度（大字评分 + A/B/C/D 档 + 可用率 / 可达率 / 平均 TTFB / 最差 P95 四个 KPI），下面依次是端点 × 运营商稳定度矩阵、逐端点明细证据、算法与样本量说明、透明化购买引导，开发者接入信息折叠在最底部；可按统计窗口 / 运营商筛选。
+- 评分只在 PHP 侧算（`app/probe_repository.php` 的 `probe_stability()` / `probe_status_summary()` / `probe_status_matrix()`），静态烘焙与只读 API 用同一套函数，前台 JS 只搬运服务端给出的数字，不在浏览器里重算，避免“页面一套、接口一套”。
+- 页面本身是静态烘焙的，「刷新」与切换筛选走 `GET /api/v1/metrics/latest`，首屏不依赖数据库也能拿到最新一小时的聚合；窗口内没有样本时矩阵与明细都会换成明确的空状态（不会残留上一窗口的数字）。
 
 ### 防刷与签名
 
@@ -297,7 +299,7 @@ php bin/probe_snapshot.php --hours=48                     # 小时快照聚合
 php bin/probe_snapshot.php --hours=6 --prune-days=30      # 聚合并清理明细（建议每小时 cron）
 ```
 
-表结构在 `app/probe_schema.sql`，由 `ensure_schema()` 自动建表；时间统一按 UTC 存储与分桶。公开展示只出现在 `/status/`：口径与「风险雷达」保持一致——必须同时给出样本量、覆盖小时与采样来源，未配置密钥的模型级目标只说明“网络可达”，不写成“服务可用”。前台快照的新鲜度取决于 `bin/probe_snapshot.php` 与 `bin/build.php` 的 cron 频率（建议每小时），页面上的“数据生成”时间即为烘焙时间。
+表结构在 `app/probe_schema.sql`，由 `ensure_schema()` 自动建表；时间统一按 UTC 存储与分桶。公开展示只出现在 `/status/`：口径与「风险雷达」保持一致——必须同时给出样本量、覆盖小时与采样来源，未配置密钥的模型级目标只说明“网络可达”，不写成“服务可用”。稳定度 = 可用率 50% + 可达率 20% + 延迟一致性 30%（`1 − (最差P95 − 平均) / 平均`），区域拦截每次 −10（上限 −20）、限流每次 −5（上限 −10），A ≥ 90 / B ≥ 75 / C ≥ 60 / D < 60；不足 5 次的分组带 `*`，窗口不足 20 次时页面把整体评级标为“仅供方向性参考”。公式与阈值同时写在 `probes/PROTOCOL.md`，任何人可用同一支探针复现。注意默认目标表把无凭证时的 401/403 列入 `expected_status`，因此这里的“可用率”是“按预期应答率”，不是“账号可用率”。前台快照的新鲜度取决于 `bin/probe_snapshot.php` 与 `bin/build.php` 的 cron 频率（建议每小时），页面上的“数据生成”时间即为烘焙时间。
 
 ---
 

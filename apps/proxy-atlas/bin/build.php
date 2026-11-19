@@ -144,10 +144,12 @@ $probeStatusMeta = probe_status_meta(24);
 
 write_file($out . '/status/index.html', render_page('status', [
     'probe_rows' => $probeRows,
+    'probe_summary' => probe_status_summary(24),
+    'probe_matrix' => probe_status_matrix(24),
     'probe_meta' => $probeStatusMeta,
     'probe_config' => $probeConfig,
-    'title' => 'AI 服务连通性状态：OpenAI / Claude / Gemini / Cursor 实测 — ' . $siteName,
-    'description' => '社区开源探针从中国大陆实测 OpenAI、Claude、Gemini、Cursor 等端点的可达率、可用率与 TTFB，按小时聚合公开，不含 IP 与账号信息。',
+    'title' => 'AI 端点公开探测：速率、可靠度与稳定度实测 — ' . $siteName,
+    'description' => '社区公开探测节点从中国大陆实测 OpenAI、Claude、Gemini、Cursor 等端点的可用率、可达率与 TTFB，按小时聚合公开，算法与样本量全部可见，不含 IP 与账号信息。',
     'canonical' => '/status/',
     'body_class' => 'page-status',
 ]));

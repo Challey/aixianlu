@@ -1,7 +1,9 @@
 """Default AI-related targets.
 
 These are intentionally conservative:
-- We treat 401/403 as "reachable" for authenticated APIs.
+- For unauthenticated probes, 401/403 are listed in ``expected_status``: they prove
+  the endpoint answered correctly from a network without a key, NOT that any
+  account works. Set ``auth_env`` and the target expects 200 only.
 - Only public, well-known endpoints are included.
 - Model-level targets send a minimal request body naming a specific model.
   Without an API key they only prove the endpoint is reachable and reveal the

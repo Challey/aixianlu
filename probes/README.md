@@ -66,7 +66,7 @@ aixianlu-probe version        # 客户端与协议版本
 | `github-api` | GET | 对照（应当始终可达） |
 | `cloudflare` | GET | `1.1.1.1` 对照 |
 
-未配置密钥时，模型级目标只会返回 `401 auth_required` / `403 forbidden`——这只证明**网络可达与错误类型**，不代表任何账号可用性，也不产生任何有效结论。平台数据会区分 `reachable` 与 `success`。
+未配置密钥时，模型级目标只会返回 `401 auth_required` / `403 forbidden`：默认目标表把它们列入 `expected_status`，因此 `success` 的含义是「端点按无凭证时的正确方式应答」，**不代表任何账号可用**。配上 `auth_env` 对应的环境变量后，同一目标只接受 `200`，此时 `success` 才是真正的模型可用证据。平台数据始终区分 `reachable`（传输层）与 `success`（应答层），并用 `error_class` 单独标记区域拦截与限流。
 
 密钥通过环境变量在运行时读取，不会写入配置文件、报告或上报载荷，错误信息中也会被脱敏。
 

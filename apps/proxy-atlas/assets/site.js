@@ -1118,12 +1118,9 @@
   function initStatusPage() {
     var controls = $("[data-status-controls]");
     if (!controls) return;
-    var body = $("[data-status-rows]");
     var note = $("[data-status-note]");
-    var updated = $("[data-status-updated]");
     var windowSel = $("[data-status-window]");
     var ispSel = $("[data-status-isp]");
-    var nameSel = $("[data-status-name]");
     var api = controls.getAttribute("data-api") || "/api/v1/metrics/latest";
     var catalog = {};
     try {
@@ -1132,57 +1129,36 @@
       catalog = {};
     }
     var targets = catalog.targets || {};
+    var grades = catalog.grades || {};
+    var badges = catalog.badges || {};
     var busy = false;
+
+    function setText(sel, value) {
+      var el = $(sel);
+      if (el) el.textContent = value;
+    }
 
     function pct(value) {
       return value === null || value === undefined ? "—" : (Math.round(value * 1000) / 10).toLocaleString("zh-CN") + "%";
     }
 
     function ms(value) {
-      return value === null || value === undefined
-        ? "—"
-        : Math.round(value).toLocaleString("zh-CN") + " ms";
+      return value === null || value === undefined ? "—" : Math.round(value).toLocaleString("zh-CN") + " ms";
     }
 
     function pad(n) {
       return (n < 10 ? "0" : "") + n;
     }
 
-    function localStamp(iso) {
+    function clockOf(iso) {
       var d = new Date(iso);
       if (isNaN(d.getTime())) return "";
-      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+      return pad(d.getHours()) + ":" + pad(d.getMinutes());
     }
 
-    function statusBadge(row) {
-      if (row.reachable_rate === null || row.reachable_rate === undefined) return ["badge", "数据不足"];
-      if (row.reachable_rate < 0.5) return ["badge badge--amber", "连接困难"];
-      if (row.success_rate === null || row.success_rate === undefined) return ["badge", "可达"];
-      if (row.success_rate >= 0.95) return ["badge badge--green", "通畅"];
-      if (row.success_rate >= 0.7) return ["badge badge--amber", "不稳定"];
-      return ["badge", "仅可达"];
-    }
-
-    function rowHTML(row) {
-      var target = targets[row.name] || {};
-      var vendor = target.label || row.name;
-      var badge = statusBadge(row);
-      var flags = [];
-      if (row.region_block_count > 0) flags.push("区域拦截 " + row.region_block_count + " 次");
-      if (row.rate_limit_count > 0) flags.push("限流 " + row.rate_limit_count + " 次");
-      var sub = row.name + (row.model ? " · " + row.model : "") + (target.control ? " · 对照组" : "");
-      return '<tr>'
-        + '<td class="col-name"><b>' + escapeHtml(vendor) + '</b>'
-        + '<span class="sub">' + escapeHtml(sub) + '</span></td>'
-        + '<td>' + (row.isp ? '<span class="badge badge--line">' + escapeHtml(row.isp) + '</span>' : '<span class="sub">未标注</span>') + '</td>'
-        + '<td class="num"><b>' + pct(row.success_rate) + '</b></td>'
-        + '<td class="num">' + pct(row.reachable_rate) + '</td>'
-        + '<td class="num">' + ms(row.avg_latency_ms) + '</td>'
-        + '<td class="num">' + ms(row.worst_p95_latency_ms) + '</td>'
-        + '<td class="num">' + (row.samples || 0)
-        + '<span class="sub">' + escapeHtml((row.hours_covered || 0) + " 小时" + (flags.length ? " · " + flags.join(" · ") : "")) + '</span></td>'
-        + '<td><span class="' + badge[0] + '">' + badge[1] + '</span></td>'
-        + "</tr>";
+    function gradeOf(score) {
+      if (score === null || score === undefined) return "";
+      return score >= 90 ? "a" : score >= 75 ? "b" : score >= 60 ? "c" : "d";
     }
 
     function setNote(text, kind) {
@@ -1191,14 +1167,146 @@
       note.className = "status-note" + (kind ? " is-" + kind : "");
     }
 
+    function renderSummary(summary) {
+      if (!summary) return;
+      var score = summary.stability_score === null || summary.stability_score === undefined ? null : summary.stability_score;
+      var grade = gradeOf(score);
+      var wrap = $("[data-status-score-wrap]");
+      if (wrap) wrap.className = "status-hero__score" + (grade ? " is-" + grade : "");
+      setText("[data-status-score]", score === null ? "—" : String(score));
+      setText("[data-status-grade]", grade ? grade.toUpperCase() + " " + (grades[grade] || "") : "待测量");
+      var confidence =
+        summary.confidence === "ok"
+          ? "样本量足够，评级可用于横向比较"
+          : summary.confidence === "low"
+            ? "样本量偏少，评级仅供方向性参考"
+            : "当前窗口还没有探测样本";
+      if (summary.confidence !== "none" && summary.thin_groups > 0) {
+        confidence += "；其中 " + summary.thin_groups + " 组样本不足 5 次（表中带 *）。";
+      }
+      setText("[data-status-confidence]", confidence);
+      setText("[data-status-success]", pct(summary.success_rate));
+      setText("[data-status-reachable]", pct(summary.reachable_rate));
+      setText("[data-status-latency]", ms(summary.avg_latency_ms));
+      setText("[data-status-p95]", ms(summary.worst_p95_latency_ms));
+      setText("[data-status-samples]", String(summary.samples || 0));
+      var control = summary.control || {};
+      var controlEl = document.querySelector("[data-status-control]");
+      if (controlEl) {
+        var names = (control.names || []).map(function (n) {
+          return (targets[n] && targets[n].label) || n;
+        }).join(" / ");
+        controlEl.innerHTML = (control.samples || 0) > 0
+          ? "<span><b>" + control.samples + "</b> 次对照测量</span> · <span>可达率 <b>" + pct(control.reachable_rate)
+            + "</b></span> · <span>" + escapeHtml(names || "对照组") + "：用来区分「目标连不上」与「本机断网」</span>"
+          : "<span>对照组：本窗口暂无 GitHub / Cloudflare 对照样本</span>";
+      }
+      setText("[data-status-targets]", String(summary.target_count || 0));
+      setText("[data-status-isps]", String(summary.isp_count || 0));
+    }
+
+    function cellHTML(cell, stability) {
+      if (!cell || !cell.samples) {
+        return '<div class="status-cell"><b class="status-cell__score is-empty">—</b></div>';
+      }
+      var score = stability && stability.score !== null && stability.score !== undefined ? stability.score : null;
+      var grade = gradeOf(score);
+      var star = stability && stability.confidence === "low" ? "*" : "";
+      return '<div class="status-cell' + (grade ? " is-" + grade : "") + '">'
+        + '<b class="status-cell__score">' + (score === null ? "—" : score + star) + "</b>"
+        + '<span class="status-cell__sub">' + pct(cell.success_rate) + " · " + cell.samples + " 次</span>"
+        + "</div>";
+    }
+
+    function renderMatrix(matrix) {
+      var table = $("[data-status-matrix]");
+      if (!table || !matrix) return;
+      var isps = matrix.isps || [];
+      var rows = matrix.rows || [];
+      var empty = $("[data-status-matrix-empty]");
+      if (!rows.length) {
+        table.hidden = true;
+        if (empty) {
+          empty.innerHTML = "<b>当前筛选没有探测样本</b>换个运营商或扩大统计窗口，或运行开源探针贡献测量结果。";
+          empty.hidden = false;
+        }
+        return;
+      }
+      table.hidden = false;
+      if (empty) empty.hidden = true;
+      var showTotal = isps.length > 1;
+      var head = "<tr><th class='status-matrix__head' scope='col'>探测端点</th>";
+      if (showTotal) head += "<th scope='col' class='is-total'>全部网络</th>";
+      isps.forEach(function (isp) {
+        head += "<th scope='col'>" + escapeHtml(isp) + "</th>";
+      });
+      head += "</tr>";
+      table.tHead.rows[0].outerHTML = head;
+
+      var body = $("[data-status-matrix-body]");
+      if (!body) return;
+      body.innerHTML = rows.map(function (entry) {
+        var target = targets[entry.name] || {};
+        var label = entry.label || target.label || entry.name;
+        var tool = entry.tool !== undefined ? entry.tool : target.tool || "";
+        var sub = entry.name + (entry.model ? " · " + entry.model : "") + (entry.control ? " · 对照组" : "");
+        var nameCell = tool
+          ? '<a class="status-matrix__name" href="/ai/' + escapeHtml(tool) + '/">' + escapeHtml(label) + "</a>"
+          : '<span class="status-matrix__name">' + escapeHtml(label) + "</span>";
+        var cells = showTotal
+          ? "<td class='is-total'>" + cellHTML(entry.total, entry.total && entry.total.stability) + "</td>"
+          : "";
+        isps.forEach(function (isp) {
+          var cell = (entry.cells || {})[isp] || null;
+          cells += "<td>" + cellHTML(cell, cell && cell.stability) + "</td>";
+        });
+        return "<tr" + (entry.control ? " class='is-control'" : "") + "><th scope='row'>" + nameCell
+          + '<span class="status-matrix__sub">' + escapeHtml(sub) + "</span></th>" + cells + "</tr>";
+      }).join("");
+    }
+
+    function renderRows(rows) {
+      var body = $("[data-status-rows]");
+      if (!body) return;
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="8"><div class="empty-state"><b>当前筛选没有探针数据</b>换个运营商或扩大统计窗口，或运行开源探针贡献测量结果。</div></td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function (row) {
+        var target = targets[row.name] || {};
+        var stability = row.stability || null;
+        var score = stability && stability.score !== null && stability.score !== undefined ? stability.score : null;
+        var grade = gradeOf(score);
+        var badgeClass = grade ? badges[grade] || "badge" : "badge";
+        var badgeText = grade
+          ? grade.toUpperCase() + " " + (grades[grade] || "") + " " + score + (stability.confidence === "low" ? "*" : "")
+          : "数据不足";
+        var flags = [];
+        if (row.region_block_count > 0) flags.push("区域拦截 " + row.region_block_count + " 次");
+        if (row.rate_limit_count > 0) flags.push("限流 " + row.rate_limit_count + " 次");
+        var sub = row.name + (row.model ? " · " + row.model : "") + (target.control ? " · 对照组" : "");
+        return "<tr>"
+          + '<td class="col-name"><b>' + escapeHtml(target.label || row.name) + "</b>"
+          + '<span class="sub">' + escapeHtml(sub) + "</span></td>"
+          + "<td>" + (row.isp ? '<span class="badge badge--line">' + escapeHtml(row.isp) + "</span>" : '<span class="sub">未标注</span>') + "</td>"
+          + '<td class="num"><b>' + pct(row.success_rate) + "</b></td>"
+          + '<td class="num">' + pct(row.reachable_rate) + "</td>"
+          + '<td class="num">' + ms(row.avg_latency_ms) + "</td>"
+          + '<td class="num">' + ms(row.worst_p95_latency_ms) + "</td>"
+          + '<td class="num">' + (row.samples || 0)
+          + '<span class="sub">' + escapeHtml((row.hours_covered || 0) + " 小时" + (flags.length ? " · " + flags.join(" · ") : "")) + "</span></td>"
+          + '<td><span class="' + badgeClass + '">' + escapeHtml(badgeText) + "</span></td>"
+          + "</tr>";
+      }).join("");
+    }
+
     function refresh() {
-      if (busy || !body) return;
+      if (busy) return;
       busy = true;
       var params = new URLSearchParams();
       params.set("hours", windowSel ? windowSel.value : "24");
       if (ispSel && ispSel.value) params.set("isp", ispSel.value);
-      if (nameSel && nameSel.value) params.set("name", nameSel.value);
-      setNote("更新中…", "busy");
+      setNote("读取聚合接口…", "busy");
       fetch(api + "?" + params.toString(), { headers: { Accept: "application/json" } })
         .then(function (res) {
           if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1206,25 +1314,21 @@
         })
         .then(function (data) {
           var rows = data && Array.isArray(data.rows) ? data.rows : [];
-          body.innerHTML = rows.length
-            ? rows.map(rowHTML).join("")
-            : '<tr><td colspan="8"><div class="empty-state"><b>当前筛选没有探针数据</b>换个运营商或扩大统计窗口，或运行开源探针贡献测量结果。</div></td></tr>';
-          if (updated && data && data.generated_at) {
-            var stamp = localStamp(data.generated_at);
-            if (stamp) updated.textContent = stamp;
-          }
-          var samples = rows.reduce(function (sum, row) { return sum + (row.samples || 0); }, 0);
-          setNote("已更新 · " + rows.length + " 组 / " + samples + " 次测量", "");
+          renderSummary(data && data.summary ? data.summary : null);
+          renderMatrix(data && data.matrix ? data.matrix : null);
+          renderRows(rows);
+          var stamp = data && data.generated_at ? clockOf(data.generated_at) : "";
+          setNote("实时数据 · " + rows.length + " 组 / " + ((data && data.summary && data.summary.samples) || 0) + " 次测量" + (stamp ? " · " + stamp : ""), "");
           busy = false;
         })
         .catch(function () {
-          setNote("刷新失败，当前为构建时数据", "error");
+          setNote("实时数据读取失败，当前展示构建时数据", "error");
           busy = false;
         });
     }
 
     on($("[data-status-refresh]"), "click", refresh);
-    [windowSel, ispSel, nameSel].forEach(function (el) {
+    [windowSel, ispSel].forEach(function (el) {
       on(el, "change", refresh);
     });
   }

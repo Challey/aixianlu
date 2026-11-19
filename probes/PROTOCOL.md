@@ -82,7 +82,9 @@ All data exchanged over the wire is JSON. Field names use `snake_case`. Timestam
 
 ### Expected status codes
 
-For AI APIs, `401` / `403` usually means the endpoint is **reachable** but authentication failed, so unauthenticated model targets treat them as reachable-but-not-successful. Receivers must not interpret `success=false` + `error_class=auth_required` as an outage — it only proves network reachability, not account usability.
+Each target declares the statuses it considers normal (`expected_status`). A community probe has no credentials, so the reference target list deliberately includes the unauthenticated answers of AI APIs — `401` / `403`, plus `429` for model calls. For those targets `success` means "the endpoint answered exactly the way an online, unblocked AI endpoint answers", **not** "this account works". Set `auth_env` (e.g. `OPENAI_API_KEY`) and the same target expects `200` only, so `success` then does prove a usable model call.
+
+`reachable` remains the transport-level signal: false only when nothing answered (DNS, TLS, connect, timeout). Receivers must not present `success` as account usability for unauthenticated probes, and must not read `success=false` + `error_class=auth_required` as an outage. A genuine block is not hidden by the expected-status list either: `error_class=region_block` / `rate_limit` are reported separately and charged as score penalties.
 
 ## 3. Authentication and Signing
 
@@ -151,6 +153,18 @@ GET /api/v1/metrics/latest?hours=24&isp=电信&name=openai-api
 returns aggregated `samples`, `success_rate`, `reachable_rate`, `avg_latency_ms`, `worst_p95_latency_ms`, `region_block_count`, `rate_limit_count`, `hours_covered`, `last_hour` per `name` + `model` + `isp`.
 
 The reference deployment renders this at `/status/` (static bake of the last 24 h plus an in-page refresh against the same endpoint). Any public rendering must keep `samples` and `hours_covered` visible next to the rates, and must not present `reachable` without `success` as "the service works".
+
+### Stability score (public rendering)
+
+One formula, computed in `app/probe_repository.php::probe_stability()` and used identically by the baked `/status/` page and the read API, so nobody has to trust a colour:
+
+```
+jitter = clamp(1 − (worst_p95 − avg) / avg, 0, 1)          // latency consistency
+score  = 100 × (0.5·success_rate + 0.2·reachable_rate + 0.3·jitter)
+       − min(20, 10 × region_block_count) − min(10, 5 × rate_limit_count)
+```
+
+If a group has no latency data, the two rate components are renormalised over 0.7 instead of guessing a jitter value. Grades: **A ≥ 90 稳定 · B 75–89 可用 · C 60–74 波动 · D < 60 不可靠**. A group with fewer than 5 samples is still scored but marked low-confidence (`*`) and must be rendered with the asterisk; the headline score is the sample-weighted mean of group scores and is labelled low-confidence until the window reaches 20 samples. Renderings must show the formula, the weights and these thresholds next to the numbers.
 
 ### Limits summary (receiver defaults)
 
