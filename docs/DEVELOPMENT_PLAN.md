@@ -31,6 +31,8 @@
 
 **成功标准**：站点可访问、点击跳转正常、后台可登录、IndexNow/百度推送可用。
 
+> 本地彩排已完成并通过（2026-11-19）：见 `docs/LAUNCH_REHEARSAL.md`。上线当天需确认 6 项：合作邮箱、`INDEXNOW_KEY`/`BAIDU_PUSH_TOKEN`、`POSTBACK_TOKEN`、真实 Affiliate 链接、36 家官网待补录处理、`data_updated_at`。
+
 ---
 
 ### Phase 1：现有栈增强与商业闭环验证（2–4 周）

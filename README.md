@@ -7,6 +7,7 @@
 - 可运行形态：PHP 8 + SQLite + 预构建静态 HTML，位于 `apps/proxy-atlas/`，是 Phase 1 的过渡实现。
 - 数据规模：119 家机场、447 个套餐选项、8 个 AI 工具与每日 AI 新闻。
 - 开源探针：`probes/`（Python，v0.2.0）已可测连通性并签名上报，接收端与快照聚合在 `apps/proxy-atlas/`（`/api/v1/metrics/*`），协议见 `probes/PROTOCOL.md`。
+- 上线彩排：本地点对点全链路已通过（251 个 sitemap URL、4772 条内链、后台与接口、真实探针上报），结果与待确认项见 `docs/LAUNCH_REHEARSAL.md`。
 - 目标架构：Drupal 10/11 内容与数据后端 + Flutter Web 前端，规划见 `docs/architecture/aixianlu_architecture_and_monetization_masterplan_v1.1.md`，阶段拆解见 `docs/DEVELOPMENT_PLAN.md`。
 
 ## 目录结构
@@ -19,7 +20,8 @@
 │   └── flutter_web/        # Flutter Web 主站（Phase 2，规划占位）
 ├── docs/
 │   ├── architecture/       # 架构与商业化规划文档
-│   └── DEVELOPMENT_PLAN.md # 分阶段开发计划与进度
+│   ├── DEVELOPMENT_PLAN.md # 分阶段开发计划与进度
+│   └── LAUNCH_REHEARSAL.md # 本地上线彩排报告与待确认清单
 ├── probes/                 # 开源测速探针（v0.2.0）+ 上报协议
 ├── web/
 │   └── modules/custom/dx_aixianlu/  # Drupal 自定义模块（Phase 2，规划占位）
