@@ -24,6 +24,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond(false, '请使用表单提交。', 405);
 }
 
+// API clients may post JSON; the rest of this script reads $_POST.
+if ($_POST === [] && str_contains((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json')) {
+    $decoded = json_decode((string) file_get_contents('php://input'), true);
+    if (is_array($decoded)) {
+        $_POST = $decoded;
+    }
+}
+
 $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
 if ($origin !== '') {
     $host = parse_url($origin, PHP_URL_HOST);
